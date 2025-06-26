@@ -21,22 +21,24 @@ export interface Division {
 
 export class DivisionDAO extends DAO<DivisionRecord, Division> {
     public readonly columns = ["division_id", "league_id", "sport_id", "conference_id", "name"] as const;
-    public readonly table_name = "division";
+    public readonly table_name = "division" as const;
     public readonly table_schema = `
         CREATE TABLE IF NOT EXISTS ${this.table_name} (
-            division_id INTEGER PRIMARY KEY,
+            division_id INTEGER,
             league_id INTEGER NOT NULL,
             sport_id INTEGER NOT NULL,
             conference_id INTEGER,
             name TEXT NOT NULL,
+            PRIMARY KEY (division_id),
             FOREIGN KEY (league_id, sport_id) REFERENCES league(league_id, sport_id),
             FOREIGN KEY (conference_id) REFERENCES conference(conference_id)
         );
-    `;
+    ` as const;
+    public readonly primaryKeys = ["division_id"] as const;
 
     public async createIndexes(): Promise<void> {
-        await this.run(`CREATE INDEX IF NOT EXISTS idx_division_league_sport ON ${this.table_name}(league_id, sport_id);`);
-        await this.run(`CREATE INDEX IF NOT EXISTS idx_division_conference ON ${this.table_name}(conference_id);`);
+        await this.run(`CREATE INDEX IF NOT EXISTS idx_division_league_sport ON ${this.table_name} (league_id, sport_id);`);
+        await this.run(`CREATE INDEX IF NOT EXISTS idx_division_conference ON ${this.table_name} (conference_id);`);
     }
 
     public mapRecord(record: DivisionRecord): Division {

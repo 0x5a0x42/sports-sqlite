@@ -21,7 +21,7 @@ export interface League {
 
 export class LeagueDAO extends DAO<LeagueRecord, League> {
     public readonly columns = ["league_id", "sport_id", "name"] as const;
-    public readonly table_name = "league";
+    public readonly table_name = "league" as const;
     public readonly table_schema = `
         CREATE TABLE IF NOT EXISTS ${this.table_name} (
             league_id INTEGER NOT NULL,
@@ -30,10 +30,11 @@ export class LeagueDAO extends DAO<LeagueRecord, League> {
             PRIMARY KEY (league_id, sport_id),
             FOREIGN KEY (sport_id) REFERENCES sport(sport_id)
         );
-    `;
+    ` as const;
+    public readonly primaryKeys = ["league_id", "sport_id"] as const;
 
     public async createIndexes(): Promise<void> {
-        await this.run(`CREATE INDEX IF NOT EXISTS idx_league_sport ON ${this.table_name}(league_id, sport_id);`);
+        await this.run(`CREATE INDEX IF NOT EXISTS idx_league_sport ON ${this.table_name} (league_id, sport_id);`);
     }
 
     public mapRecord(record: LeagueRecord): League {

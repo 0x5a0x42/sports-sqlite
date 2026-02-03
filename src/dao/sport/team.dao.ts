@@ -24,10 +24,10 @@ export interface Team {
 
 export class TeamDAO extends DAO<TeamRecord, Team> {
     public readonly columns = ["team_id", "league_id", "sport_id", "conference_id", "division_id", "name", "city", "abbreviation"] as const;
-    public readonly table_name = "team";
+    public readonly table_name = "team" as const;
     public readonly table_schema = `
         CREATE TABLE IF NOT EXISTS ${this.table_name} (
-            team_id INTEGER PRIMARY KEY,
+            team_id INTEGER,
             league_id INTEGER NOT NULL,
             sport_id INTEGER NOT NULL,
             conference_id INTEGER,
@@ -35,16 +35,18 @@ export class TeamDAO extends DAO<TeamRecord, Team> {
             name TEXT NOT NULL,
             city TEXT,
             abbreviation TEXT,
+            PRIMARY KEY (team_id)
             FOREIGN KEY (league_id, sport_id) REFERENCES league(league_id, sport_id),
             FOREIGN KEY (conference_id) REFERENCES conference(conference_id),
             FOREIGN KEY (division_id) REFERENCES division(division_id)
         );
-    `;
+    ` as const;
+    public readonly primaryKeys = ["team_id"] as const;
 
     public async createIndexes(): Promise<void> {
-        await this.run(`CREATE INDEX IF NOT EXISTS idx_team_league_sport ON ${this.table_name}(league_id, sport_id);`);
-        await this.run(`CREATE INDEX IF NOT EXISTS idx_team_conference ON ${this.table_name}(conference_id);`);
-        await this.run(`CREATE INDEX IF NOT EXISTS idx_team_division ON ${this.table_name}(division_id);`);
+        await this.run(`CREATE INDEX IF NOT EXISTS idx_team_league_sport ON ${this.table_name} (league_id, sport_id);`);
+        await this.run(`CREATE INDEX IF NOT EXISTS idx_team_conference ON ${this.table_name} (conference_id);`);
+        await this.run(`CREATE INDEX IF NOT EXISTS idx_team_division ON ${this.table_name} (division_id);`);
     }
 
     public mapRecord(record: TeamRecord): Team {

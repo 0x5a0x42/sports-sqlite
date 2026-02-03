@@ -21,19 +21,21 @@ export interface Conference {
 
 export class ConferenceDAO extends DAO<ConferenceRecord, Conference> {
     public readonly columns = ["conference_id", "league_id", "sport_id", "name"] as const;
-    public readonly table_name = "conference";
+    public readonly table_name = "conference" as const;
     public readonly table_schema = `
         CREATE TABLE IF NOT EXISTS ${this.table_name} (
-            conference_id INTEGER PRIMARY KEY,
+            conference_id INTEGER,
             league_id INTEGER NOT NULL,
             sport_id INTEGER NOT NULL,
             name TEXT NOT NULL,
+            PRIMARY KEY (conference_id),
             FOREIGN KEY (league_id, sport_id) REFERENCES league(league_id, sport_id)
         );
-    `;
+    ` as const;
+    public readonly primaryKeys = ["conference_id"] as const;
 
     public async createIndexes(): Promise<void> {
-        await this.run(`CREATE INDEX IF NOT EXISTS idx_conference_league_sport ON ${this.table_name}(league_id, sport_id);`);
+        await this.run(`CREATE INDEX IF NOT EXISTS idx_conference_league_sport ON ${this.table_name} (league_id, sport_id);`);
     }
 
     public mapRecord(record: ConferenceRecord): Conference {

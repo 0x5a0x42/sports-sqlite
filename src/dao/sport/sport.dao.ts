@@ -15,13 +15,15 @@ export interface Sport {
 
 export class SportDAO extends DAO<SportRecord, Sport> {
     public readonly columns = ["sport_id", "name"] as const;
-    public readonly table_name = "sport";
+    public readonly table_name = "sport" as const;
     public readonly table_schema = `
         CREATE TABLE IF NOT EXISTS ${this.table_name} (
-            sport_id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE
+            sport_id INTEGER,
+            name TEXT NOT NULL UNIQUE,
+            PRIMARY KEY (sport_id)
         );
-    `;
+    ` as const;
+    public readonly primaryKeys = ["sport_id"] as const;
 
     public mapRecord(record: SportRecord): Sport {
         return {

@@ -1,11 +1,15 @@
-// dao.ts
-import { Database, RunResult } from "sqlite3";
+import { Database } from "sqlite3";
 
 export abstract class DAO<T extends Record<string, any>, U = T> {
     protected database!: Database;
+    /** List of column names for a table. */
     public abstract readonly columns: readonly string[];
+    /** The table's name. */
     public abstract readonly table_name: string;
+    /** The create table SQL statement. */
     public abstract readonly table_schema: string;
+    /** List of column names that form the primary key. */
+    public abstract readonly primaryKeys: readonly string[];
 
     /**
      * Map DB record (snake_case) to application model (camelCase).
@@ -98,21 +102,6 @@ export abstract class DAO<T extends Record<string, any>, U = T> {
     }
 
     /**
-     * Find a record by primary key (assumes first column is PK).
-     * @param id primary key value
-     */
-    public async findById(id: unknown): Promise<U | null> {
-        return new Promise((resolve, reject) => {
-            const pk = this.columns[0];
-            this.database.get(`SELECT * FROM ${this.table_name} WHERE ${pk} = ?`, [id], (err, row: T) => {
-                if (err) return reject(err);
-                if (!row) return resolve(null);
-                resolve(this.mapRecord(row));
-            });
-        });
-    }
-
-    /**
      * Insert one or more app models.
      * Converts app models (U) → DB records (T) internally.
      * Validates the mapped records strictly against expected columns.
@@ -146,33 +135,69 @@ export abstract class DAO<T extends Record<string, any>, U = T> {
     }
 
     /**
-     * Update record by primary key (first column).
-     * @param id primary key value
-     * @param updates partial fields to update (in app model form)
+     * Find a record using a composite or singular primary key.
+     * @param key Object with key-value pairs matching the primary key(s).
+     * @returns The mapped application model or null if not found.
      */
-    public async updateById(id: unknown, updates: Partial<U>): Promise<void> {
-        const pk = this.columns[0];
+    public async findByKey(key: Partial<T>): Promise<U | null> {
+        // Construct WHERE clause from all primary key fields
+        const whereClause = this.primaryKeys.map(k => `${k} = ?`).join(" AND ");
+        const values = this.primaryKeys.map(k => key[k]);
+
+        return new Promise((resolve, reject) => {
+            this.database.get(
+                `SELECT * FROM ${this.table_name} WHERE ${whereClause}`,
+                values,
+                (err, row: T) => {
+                    if (err) return reject(err);
+                    if (!row) return resolve(null);
+                    resolve(this.mapRecord(row));
+                }
+            );
+        });
+    }
+
+    /**
+     * Update a record using a composite or singular primary key.
+     * Only non-key fields that are defined will be updated.
+     * @param key Object with key-value pairs matching the primary key(s).
+     * @param updates Partial application model containing updated fields.
+     */
+    public async updateByKey(key: Partial<T>, updates: Partial<U>): Promise<void> {
+        // Convert application model to DB record format
         const dbRecord = this.mapToRecord(updates as U);
-        const updateColumns = Object.keys(dbRecord).filter(k => k !== pk && dbRecord[k] !== undefined);
+
+        // Filter out undefined fields and primary key fields from update
+        const updateColumns = Object.keys(dbRecord).filter(
+            k => !this.primaryKeys.includes(k) && dbRecord[k] !== undefined
+        );
 
         if (updateColumns.length === 0) return;
 
+        // Build SET and WHERE clauses for the update statement
         const setClause = updateColumns.map(col => `${col} = ?`).join(", ");
-        const values = updateColumns.map(col => dbRecord[col]);
-        values.push(id);
+        const whereClause = this.primaryKeys.map(k => `${k} = ?`).join(" AND ");
 
-        const sql = `UPDATE ${this.table_name} SET ${setClause} WHERE ${pk} = ?`;
+        // Combine update values and key values for the query
+        const values = [
+            ...updateColumns.map(col => dbRecord[col]),
+            ...this.primaryKeys.map(k => key[k])
+        ];
 
+        const sql = `UPDATE ${this.table_name} SET ${setClause} WHERE ${whereClause}`;
         await this.run(sql, values);
     }
 
     /**
-     * Delete record by primary key (first column).
-     * @param id primary key value
+     * Delete a record using a composite or singular primary key.
+     * @param key Object with key-value pairs matching the primary key(s).
      */
-    public async deleteById(id: unknown): Promise<void> {
-        const pk = this.columns[0];
-        const sql = `DELETE FROM ${this.table_name} WHERE ${pk} = ?`;
-        await this.run(sql, [id]);
+    public async deleteByKey(key: Partial<T>): Promise<void> {
+        // Construct WHERE clause from all primary key fields
+        const whereClause = this.primaryKeys.map(k => `${k} = ?`).join(" AND ");
+        const values = this.primaryKeys.map(k => key[k]);
+
+        const sql = `DELETE FROM ${this.table_name} WHERE ${whereClause}`;
+        await this.run(sql, values);
     }
 }
